@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crim-eval: a 10-minute cognitive ability estimate</title>
+<style>
+:root{
+  --paper:#EDEFEB; --sheet:#FFFFFF; --ink:#1D2023; --graph:#596067; --rule:#CBD0CA;
+  --crim:#A3122F; --crim-soft:#F2D9DE; --ok:#2E6A4E; --ok-soft:#DCEBE2;
+  --display:"Bahnschrift","DIN Alternate","DIN Next","Avenir Next Condensed","Roboto Condensed","Arial Narrow",sans-serif;
+  --text:"Seravek","Segoe UI","Gill Sans Nova","Ubuntu","Noto Sans","Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--text);font-size:17px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--crim);outline-offset:3px}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:18px;padding:12px clamp(16px,4vw,32px);background:var(--paper);border-bottom:1px solid var(--rule)}
+.mark{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:700;font-size:21px;letter-spacing:.005em;white-space:nowrap}
+.mark i{display:inline-block;width:13px;height:13px;border-radius:50%;background:var(--crim)}
+.where{flex:1;min-width:0;color:var(--graph);font-size:15px;line-height:1.25}
+.where b{color:var(--ink);font-weight:600}
+.timer{font-family:var(--display);font-variant-numeric:tabular-nums;font-size:22px;font-weight:600;white-space:nowrap}
+.timer small{font-family:var(--text);font-size:13px;font-weight:400;color:var(--graph);margin-left:4px}
+.timer.low{color:var(--crim)}
+.timer.low small{color:var(--crim)}
+
+main{max-width:880px;margin:0 auto;padding:clamp(20px,4vw,40px) clamp(16px,4vw,28px) 80px}
+p{margin:0 0 .8em}
+h2{font-family:var(--display);font-weight:700;font-size:clamp(34px,6vw,52px);line-height:1;margin:.1em 0 .35em;letter-spacing:-.005em}
+h3{font-family:var(--display);font-weight:600;font-size:21px;margin:0 0 .5em}
+.lede{font-size:19px;max-width:36em}
+.muted{color:var(--graph)}
+.small{font-size:15px}
+
+/* buttons */
+.primary,.ghost{border-radius:8px;padding:11px 20px;font-weight:600;font-size:16px;cursor:pointer;line-height:1.2}
+.primary{background:var(--ink);color:#fff;border:1.5px solid var(--ink)}
+.primary:hover{background:#000}
+.primary:disabled{opacity:.3;cursor:not-allowed}
+.ghost{background:transparent;border:1.5px solid var(--ink)}
+.ghost:hover{background:#fff}
+.ghost:disabled{opacity:.3;cursor:not-allowed}
+.big{padding:15px 28px;font-size:17px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+
+/* welcome */
+.word{font-family:var(--display);font-weight:700;font-size:clamp(68px,15vw,148px);line-height:.86;letter-spacing:-.02em;margin:.05em 0 .22em}
+.word span{display:inline-block;width:.16em;height:.16em;border-radius:50%;background:var(--crim);margin-left:.06em;vertical-align:.05em}
+.parts{list-style:none;padding:0;margin:28px 0 34px;border-top:1.5px solid var(--ink)}
+.parts li{display:grid;grid-template-columns:38px 1fr auto;gap:4px 14px;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--rule)}
+.parts .num{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--ink);display:grid;place-items:center;font:600 14px var(--display);align-self:center}
+.parts .nm{font-weight:600}
+.parts .nm small{display:block;font-weight:400;color:var(--graph);font-size:15px}
+.parts .tm{font-family:var(--display);font-variant-numeric:tabular-nums;color:var(--graph);white-space:nowrap}
+.cols{display:grid;grid-template-columns:1.1fr 1fr;gap:28px 40px;margin-bottom:30px}
+.rules{margin:0;padding-left:1.1em}
+.rules li{margin-bottom:.45em}
+.qs{display:flex;flex-direction:column;gap:18px}
+.q p{margin:0 0 7px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:9px;background:var(--sheet);border:1.5px solid var(--rule);border-radius:999px;padding:7px 15px 7px 10px;cursor:pointer;font-size:16px}
+.chip::before{content:"";width:14px;height:14px;border-radius:50%;border:1.5px solid var(--graph);background:#fff;flex:none}
+.chip[aria-pressed="true"]{border-color:var(--crim)}
+.chip[aria-pressed="true"]::before{background:var(--crim);border-color:var(--crim)}
+.note{border-left:3px solid var(--crim);padding:4px 0 4px 14px;margin:0 0 22px;color:var(--ink);max-width:40em}
+.startrow{display:flex;gap:16px;align-items:center;flex-wrap:wrap;border-top:1.5px solid var(--ink);padding-top:22px}
+
+/* section intro */
+.part{font-family:var(--display);color:var(--graph);font-size:17px;margin:0}
+.done{display:inline-flex;align-items:center;gap:8px;color:var(--ok);font-weight:600;margin-bottom:16px}
+.done::before{content:"";width:12px;height:12px;border-radius:50%;background:var(--ok)}
+.practice{background:var(--sheet);border:1.5px solid var(--rule);border-radius:12px;padding:clamp(16px,3vw,26px);margin:22px 0 22px}
+.practice h3{margin-bottom:.2em}
+.fb{min-height:1.5em;margin-top:14px;max-width:40em}
+.fb.good{color:var(--ok)}
+.fb.bad{color:var(--crim)}
+.fb b{font-weight:700}
+.hint{color:var(--graph);font-size:15px}
+
+/* item screen */
+.sheet{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin:0 0 20px}
+.bub{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--graph);background:transparent;font:600 13px var(--display);color:var(--graph);cursor:pointer;padding:0;display:grid;place-items:center}
+.bub.ans{background:var(--ink);border-color:var(--ink);color:#fff}
+.bub.cur{box-shadow:0 0 0 3px var(--paper),0 0 0 5px var(--crim)}
+.stem{text-align:center;font-size:19px;margin:0 auto 16px;max-width:34em}
+.stem.left{text-align:left}
+.itemnav{display:flex;justify-content:space-between;gap:12px;max-width:560px;margin:26px auto 0}
+
+/* matrices */
+.matrix{display:grid;grid-template-columns:repeat(3,1fr);width:min(342px,84vw);margin:0 auto;background:var(--sheet);border:2px solid var(--ink)}
+.mc{aspect-ratio:1/1;border:1px solid var(--rule);display:grid;place-items:center}
+.mc svg{width:100%;height:100%;display:block}
+.mc.q{font:600 46px var(--display);color:var(--graph)}
+.opts{display:grid;gap:10px;margin:20px auto 0}
+.o8{grid-template-columns:repeat(4,1fr);max-width:520px}
+.opt{position:relative;background:var(--sheet);border:1.5px solid var(--rule);border-radius:8px;padding:27px 6px 6px;cursor:pointer;display:block;width:100%}
+.opt:hover{border-color:var(--graph)}
+.opt svg{display:block;width:100%;height:auto;aspect-ratio:1/1}
+.opt .n{position:absolute;top:4px;left:5px;width:21px;height:21px;border-radius:50%;border:1.5px solid var(--graph);background:#fff;font:600 12px var(--display);color:var(--graph);display:grid;place-items:center}
+.opt.sel{border-color:var(--crim);box-shadow:inset 0 0 0 1.5px var(--crim)}
+.opt.sel .n{background:var(--crim);border-color:var(--crim);color:#fff}
+.opt.key{border-color:var(--ok);box-shadow:inset 0 0 0 1.5px var(--ok)}
+.opt.key .n{background:var(--ok);border-color:var(--ok);color:#fff}
+
+/* series */
+.seq{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.25em .55em;font-family:var(--display);font-weight:600;font-size:clamp(28px,6vw,44px);font-variant-numeric:tabular-nums;background:var(--sheet);border:2px solid var(--ink);border-radius:10px;padding:.55em .7em;max-width:680px;margin:0 auto}
+.seq .c{color:var(--graph);font-weight:400;margin-left:-.45em}
+.seq input{font:inherit;width:3.4em;text-align:center;border:2px solid var(--crim);border-radius:8px;padding:.02em .15em;background:#fff;color:var(--ink)}
+.seq input::placeholder{color:#b7bcc1}
+.seq .ansfill{color:var(--ok);border-bottom:3px solid var(--ok)}
+
+/* verbal */
+.vq{font-size:20px;max-width:32em;margin:0 auto 18px;background:var(--sheet);border:2px solid var(--ink);border-radius:10px;padding:18px 22px}
+.vq p:last-child{margin-bottom:0}
+.vopts{display:flex;flex-direction:column;gap:8px;max-width:560px;margin:0 auto}
+.vopt{display:flex;gap:12px;align-items:center;text-align:left;background:var(--sheet);border:1.5px solid var(--rule);border-radius:8px;padding:11px 14px;cursor:pointer;width:100%}
+.vopt:hover{border-color:var(--graph)}
+.vopt .n{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--graph);font:600 12px var(--display);color:var(--graph);display:grid;place-items:center}
+.vopt.sel{border-color:var(--crim);box-shadow:inset 0 0 0 1.5px var(--crim)}
+.vopt.sel .n{background:var(--crim);border-color:var(--crim);color:#fff}
+.vopt.key{border-color:var(--ok);box-shadow:inset 0 0 0 1.5px var(--ok)}
+.vopt.key .n{background:var(--ok);border-color:var(--ok);color:#fff}
+
+/* rotation */
+.rot{display:grid;grid-template-columns:minmax(130px,1fr) 3fr;gap:22px;align-items:center;max-width:760px;margin:0 auto}
+.target{margin:0;background:var(--sheet);border:2px solid var(--ink);border-radius:10px;padding:6px}
+.target svg{display:block;width:100%;height:auto;aspect-ratio:1/1}
+.target figcaption{text-align:center;font-size:14px;color:var(--graph);padding-bottom:4px}
+.rot .opts{margin:0;grid-template-columns:repeat(4,1fr);max-width:none}
+
+/* working memory */
+.wmstage{display:grid;place-items:center;min-height:230px;background:var(--sheet);border:2px solid var(--ink);border-radius:12px;max-width:560px;margin:0 auto}
+.digit{font:700 clamp(96px,22vw,150px)/1 var(--display);font-variant-numeric:tabular-nums}
+.digit.dim{color:var(--rule)}
+.wmform{display:flex;flex-direction:column;align-items:center;gap:12px;padding:22px}
+.wmform label{font-size:18px;font-weight:600}
+.wmform input{font:600 34px var(--display);letter-spacing:.18em;text-align:center;width:min(320px,70vw);border:2px solid var(--crim);border-radius:8px;padding:6px 10px;background:#fff}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(29,32,35,.45);display:grid;place-items:center;z-index:20;padding:20px}
+.modal .box{background:var(--sheet);border-radius:12px;padding:24px;max-width:420px;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+.modal .row{justify-content:flex-end;margin-top:8px}
+
+/* results */
+.rep-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1.5px solid var(--ink);padding-bottom:8px;margin-bottom:8px}
+.rep-head h2{margin:0}
+.curve{width:100%;height:auto;display:block;margin:6px 0 4px}
+.curve .band{animation:reveal 1.1s cubic-bezier(.2,.7,.2,1) both}
+@keyframes reveal{from{clip-path:inset(0 50% 0 50%)}to{clip-path:inset(0 0 0 0)}}
+@media (prefers-reduced-motion:reduce){.curve .band{animation:none}}
+.verdict{font-size:21px;max-width:34em;margin:6px 0 18px}
+.verdict b{font-family:var(--display);font-weight:700;font-size:1.15em}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:0 0 30px}
+.facts div{padding:12px 14px 12px 0}
+.facts div+div{padding-left:14px;border-left:1px solid var(--rule)}
+.facts dt{color:var(--graph);font-size:14px}
+.facts dd{margin:0;font-family:var(--display);font-weight:600;font-size:22px}
+.secs{width:100%;border-collapse:collapse;margin-bottom:8px}
+.secs td{padding:10px 8px 10px 0;border-bottom:1px solid var(--rule);vertical-align:middle}
+.secs td:last-child{text-align:right;white-space:nowrap;font-family:var(--display);font-variant-numeric:tabular-nums}
+.secs .nm{font-weight:600;white-space:nowrap}
+.dots{display:flex;gap:5px;flex-wrap:wrap}
+.dot{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--ink);background:transparent}
+.dot.y{background:var(--ink)}
+.dot.na{border-style:dashed;border-color:var(--graph)}
+.checks{list-style:none;padding:0;margin:0 0 30px}
+.checks li{display:grid;grid-template-columns:22px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.checks li::before{content:"";width:14px;height:14px;border-radius:50%;margin-top:5px;background:var(--ok)}
+.checks li.flag::before{background:var(--crim)}
+.checks li.info::before{background:transparent;border:1.5px solid var(--graph)}
+details{border-top:1px solid var(--rule);padding:12px 0}
+details:last-of-type{border-bottom:1px solid var(--rule)}
+summary{cursor:pointer;font-weight:600;font-size:18px}
+details > div{max-width:42em;padding-top:10px}
+details li{margin-bottom:.5em}
+.actions{margin-top:30px}
+.status{display:inline-block;font-weight:600;border-radius:999px;padding:2px 12px;font-size:15px}
+.status.ok{background:var(--ok-soft);color:var(--ok)}
+.status.warn{background:var(--crim-soft);color:var(--crim)}
+
+/* review */
+.rv{background:var(--sheet);border:1.5px solid var(--rule);border-radius:12px;padding:18px;margin:0 0 14px}
+.rv h4{margin:0 0 10px;font-family:var(--display);font-size:18px;display:flex;gap:10px;align-items:center}
+.rv h4 .status{font-family:var(--text)}
+.rv .grid2{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+.rv .matrix{width:210px;margin:0}
+.rv .mc.q{background:var(--ok-soft)}
+.rv .mini{width:110px}
+.rv .mini svg{width:100%;height:auto;display:block;background:#fff;border:1.5px solid var(--rule);border-radius:8px}
+.rv .seq{font-size:26px;margin:0 0 10px;max-width:none;justify-content:flex-start}
+
+@media (max-width:700px){
+  body{font-size:16px}
+  .cols{grid-template-columns:1fr}
+  .rot{grid-template-columns:1fr}
+  .target{width:46%;margin:0 auto}
+  .rot .opts{grid-template-columns:repeat(2,1fr);max-width:340px;margin:0 auto}
+  .o8{gap:8px}
+  .facts{grid-template-columns:1fr}
+  .facts div+div{padding-left:0;border-left:0;border-top:1px solid var(--rule)}
+  .rv .grid2{grid-template-columns:1fr}
+  .where{font-size:13px}
+  .stem{font-size:17px}
+}
+@media print{
+  .top,.actions,.noprint{display:none!important}
+  body{background:#fff}
+  details{display:block}
+  details > div{display:block}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="6" height="6" fill="#fff"/><line x1="0" y1="0" x2="0" y2="6" stroke="#1D2023" stroke-width="2.4"/>
+    </pattern>
+  </defs>
+</svg>
+
+<header class="top">
+  <div class="mark"><i></i>Crim-eval</div>
+  <div class="where" id="where"></div>
+  <div class="timer" id="timer" hidden><span id="tval">0:00</span><small>left</small></div>
+</header>
+<main id="app"></main>
+
+<script>
+'use strict';
+/* =====================================================================
+   Crim-eval. Single-file cognitive ability estimate.
+   Scoring: unidimensional 3-parameter logistic IRT model (D = 1.702),
+   expected-a-posteriori (EAP) estimate with a N(0,1) population prior.
+   Item parameters are a-priori values derived from item-design research
+   (rule count/type for matrices, rule complexity for series, shape size
+   and angle for rotation, span length for digit span). They are NOT
+   calibrated on a norm sample; the report says so and widens the interval.
+   ===================================================================== */
+
+const D = 1.702;
+const PARAM_UNCERTAINTY = 0.20;      // extra SD (theta units) for uncalibrated parameters
+const STORE_KEY = 'crim-eval:started';
+const app = document.getElementById('app');
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const clone = o => JSON.parse(JSON.stringify(o));
+
+function rng(seed){ return function(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function shuffle(arr, seed){ const r = rng(seed), a = arr.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* ---------------- drawing: matrix cells ---------------- */
+const INK = '#1D2023', GREY = '#9AA1A8';
+const FILLS = { w:'#FFFFFF', g:GREY, b:INK, s:'url(#hatch)' };
+function ngon(n, r, start){ const p = []; for (let i = 0; i < n; i++){ const a = (start + i * 360 / n) * Math.PI / 180; p.push((r * Math.cos(a)).toFixed(2) + ',' + (r * Math.sin(a)).toFixed(2)); } return p.join(' '); }
+const SHAPE = {
+  circle:   r => `<circle r="${r}"/>`,
+  square:   r => { const s = r * 0.84; return `<rect x="${(-s).toFixed(2)}" y="${(-s).toFixed(2)}" width="${(2*s).toFixed(2)}" height="${(2*s).toFixed(2)}"/>`; },
+  triangle: r => `<polygon transform="translate(0 ${(r*0.14).toFixed(2)})" points="${ngon(3, r*1.1, -90)}"/>`,
+  diamond:  r => `<polygon points="0,${-r} ${(r*0.76).toFixed(2)},0 0,${r} ${(-r*0.76).toFixed(2)},0"/>`,
+  pentagon: r => `<polygon points="${ngon(5, r*1.02, -90)}"/>`,
+  hexagon:  r => `<polygon points="${ngon(6, r, 0)}"/>`,
+  arrow:    r => { const P = [[0,-1],[.66,-.12],[.24,-.12],[.24,1],[-.24,1],[-.24,-.12],[-.66,-.12]]; return `<polygon points="${P.map(([x,y]) => (x*r).toFixed(2) + ',' + (y*r).toFixed(2)).join(' ')}"/>`; }
+};
+const LAYOUT = {1:[[50,50]], 2:[[29,50],[71,50]], 3:[[50,28],[28,70],[72,70]], 4:[[30,30],[70,30],[30,70],[70,70]], 5:[[27,27],[73,27],[50,50],[27,73],[73,73]], 6:[[30,22],[70,22],[30,50],[70,50],[30,78],[70,78]]};
+const BASER = {1:31, 2:16, 3:15, 4:15, 5:12, 6:11};
+function drawObj(o){
+  const st = `stroke="${INK}" stroke-width="2.4" stroke-linejoin="round"`;
+  if (o.t === 'shape'){ const r = BASER[o.n] * (o.z || 1); return LAYOUT[o.n].map(([x,y]) => `<g transform="translate(${x} ${y}) rotate(${o.rot || 0})" fill="${FILLS[o.f]}" ${st}>${SHAPE[o.s](r)}</g>`).join(''); }
+  if (o.t === 'outer') return `<g transform="translate(50 50)" fill="#FFFFFF" ${st}>${SHAPE[o.s](40)}</g>`;
+  if (o.t === 'inner') return `<g transform="translate(50 50)" fill="${FILLS[o.f]}" ${st}>${SHAPE[o.s](14)}</g>`;
+  if (o.t === 'spokes'){
+    let s = `<circle cx="50" cy="50" r="41" fill="none" stroke="#B8BEC4" stroke-width="1.5"/>`;
+    for (const k of o.k){ const a = k * Math.PI / 4; s += `<line x1="50" y1="50" x2="${(50 + 37*Math.sin(a)).toFixed(2)}" y2="${(50 - 37*Math.cos(a)).toFixed(2)}" stroke="${INK}" stroke-width="3.4" stroke-linecap="round"/>`; }
+    return s + (o.noDot ? '' : `<circle cx="50" cy="50" r="3.6" fill="${INK}"/>`);
+  }
+  if (o.t === 'dots'){ const P = [[11,11],[89,11],[89,89],[11,89]]; return o.k.map(k => `<circle cx="${P[k][0]}" cy="${P[k][1]}" r="5.5" fill="${INK}"/>`).join(''); }
+  return '';
+}
+const cellSVG = cell => `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">${cell.map(drawObj).join('')}</svg>`;
+
+/* ---------------- drawing: polyominoes ---------------- */
+function centroid(cells){ const n = cells.length; return [cells.reduce((s,c) => s + c[0], 0)/n + .5, cells.reduce((s,c) => s + c[1], 0)/n + .5]; }
+function radius(cells){ const [cx,cy] = centroid(cells); let m = 0; for (const [x,y] of cells) for (const [dx,dy] of [[0,0],[1,0],[0,1],[1,1]]) m = Math.max(m, Math.hypot(x+dx-cx, y+dy-cy)); return m; }
+function polySVG(cells, ang, mirror, unit){
+  const [cx,cy] = centroid(cells);
+  const rects = cells.map(([x,y]) => `<rect x="${((x-cx)*unit).toFixed(2)}" y="${((y-cy)*unit).toFixed(2)}" width="${unit.toFixed(2)}" height="${unit.toFixed(2)}"/>`).join('');
+  return `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><g transform="translate(50 50) rotate(${ang}) scale(${mirror ? -1 : 1} 1)" fill="${INK}" stroke="${INK}" stroke-width="0.8" stroke-linejoin="round">${rects}</g></svg>`;
+}
+
+/* ---------------- items ---------------- */
+// Matrix items. Distractors: 3 attributes x 2 values = 8 options (balanced, after I-RAVEN),
+// so every attribute value appears in exactly half of the options and the correct answer
+// cannot be found by picking the most common features.
+const xorK = (a, b) => { const s = new Set(a); for (const v of b) s.has(v) ? s.delete(v) : s.add(v); return [...s].sort((p,q) => p - q); };
+const SPK = [[[0,2,5],[2,3,6]], [[1,4,6],[1,2,7]], [[0,3,4,7],[3,5,7]]];
+
+const MAT_PRACTICE = {id:'MP', seed:55,
+  gen:(r,c) => [{t:'shape', s:['diamond','circle','square'][c], n:1, f:['w','g','b'][r]}],
+  vars:[x => {x[0].s='circle'}, x => {x[0].f='g'}, x => {x[0].n=2}],
+  why:'Each column keeps one shape and each row keeps one shading, so the missing cell is a black square.'};
+
+const MAT = [
+ {id:'M1', a:.75, b:-2.0, seed:101,
+  gen:(r,c) => [{t:'shape', s:['circle','square','triangle'][r], n:c+1, f:'w'}],
+  vars:[x => {x[0].n=4}, x => {x[0].s='square'}, x => {x[0].f='b'}],
+  why:'Each row keeps one shape, and the count goes 1, 2, 3 across the row: three white triangles.'},
+ {id:'M2', a:.80, b:-1.5, seed:202,
+  gen:(r,c) => [{t:'shape', s:['diamond','pentagon','circle'][r], n:1, f:['w','g','b'][c]}],
+  vars:[x => {x[0].f='g'}, x => {x[0].s='pentagon'}, x => {x[0].n=2}],
+  why:'Each row keeps one shape, and the shading goes white, grey, black across the row: one black circle.'},
+ {id:'M3', a:.85, b:-0.9, seed:303,
+  gen:(r,c) => [{t:'shape', s:['square','triangle','hexagon'][r], n:1, z:[1,.72,.46][c], f:['w','g','b'][(r+c)%3]}],
+  vars:[x => {x[0].z=1}, x => {x[0].s='triangle'}, x => {x[0].f='b'}],
+  why:'Shape is fixed within each row, size shrinks from left to right, and every row has one white, one grey and one black shape: a small grey hexagon.'},
+ {id:'M4', a:.85, b:-0.5, seed:404,
+  gen:(r,c) => [{t:'shape', s:'arrow', n:1, f:['w','g','b'][r], rot:r*90 + c*45}],
+  vars:[x => {x[0].rot=315}, x => {x[0].f='g'}, x => {x[0].n=2}],
+  why:'Each step to the right turns the arrow 45° clockwise, and shading is fixed within each row: one black arrow pointing left.'},
+ {id:'M5', a:.90, b:-0.2, seed:505,
+  gen:(r,c) => [{t:'shape', s:['circle','square','triangle'][(r+c)%3], n:[2,1,3][r], f:['w','g','b'][c]}],
+  vars:[x => {x[0].s='circle'}, x => {x[0].f='g'}, x => {x[0].n=2}],
+  why:'Every row and column contains one circle, one square and one triangle; shading darkens from left to right; the count is fixed within each row (2, 1, 3): three black squares.'},
+ {id:'M6', a:.95, b:0.2, seed:606,
+  gen:(r,c) => [{t:'shape', s:['circle','diamond','pentagon'][(r+c)%3], n:c+1, f:['w','g','b'][(c-r+3)%3]}],
+  vars:[x => {x[0].s='pentagon'}, x => {x[0].f='b'}, x => {x[0].n=2}],
+  why:'Each row contains each shape once and each shading once, in different arrangements, and the count goes 1, 2, 3 across the row: three white diamonds.'},
+ {id:'M7', a:.90, b:0.6, seed:707,
+  gen:(r,c) => [{t:'spokes', k: c < 2 ? SPK[r][c] : xorK(SPK[r][0], SPK[r][1])}],
+  vars:[x => {x[0].k = xorK(x[0].k,[3,7])}, x => {x[0].k = xorK(x[0].k,[1])}, x => {x[0].k = xorK(x[0].k,[5])}],
+  why:'In each row, the third cell keeps only the lines that appear in exactly one of the first two cells. Lines that appear in both cancel out.'},
+ {id:'M8', a:.95, b:0.9, seed:808,
+  gen:(r,c) => [{t:'outer', s:['square','circle','hexagon'][(r+c)%3]}, {t:'inner', s:['triangle','circle','diamond'][c], f:['b','w','g'][(c-r+3)%3]}],
+  vars:[x => {x[0].s='hexagon'}, x => {x[1].s='triangle'}, x => {x[1].f='g'}],
+  why:'Each outer shape appears once in every row and column, and so does each inner shading. The inner shape is fixed within each column: a circle containing a black diamond.'},
+ {id:'M9', a:.90, b:1.3, seed:909,
+  gen:(r,c) => [{t:'shape', s:['triangle','square','circle'][(r+2*c)%3], n:[[1,3,4],[2,1,3],[3,2,5]][r][c], f:['w','b','g'][r]}],
+  vars:[x => {x[0].n=4}, x => {x[0].s='circle'}, x => {x[0].f='b'}],
+  why:'In each row the third count is the first plus the second (1+3=4, 2+1=3, 3+2=5). Each shape appears once per row and column, and shading is fixed per row: five grey triangles.'},
+ {id:'M10', a:.90, b:1.7, seed:1010,
+  gen:(r,c) => [{t:'shape', s:'arrow', n:[1,2,3][(r+c)%3], f:['w','g','b'][(c-r+3)%3], rot:[0,90,45][r] + [45,90,135][r]*c}],
+  vars:[x => {x[0].rot=270}, x => {x[0].n=3}, x => {x[0].f='b'}],
+  why:'Within each row the arrows turn by a fixed step (45°, then 90°, then 135°). Counts and shadings each appear once per row and column: two white arrows pointing up and to the left.'}
+];
+
+const SER_PRACTICE = {id:'SP', seq:[5,10,15,20,25], ans:30, why:'Add 5 each time.'};
+const SER = [
+ {id:'S1', a:.80, b:-1.8, seq:[3,7,11,15,19], ans:23, why:'Add 4 each time.'},
+ {id:'S2', a:.90, b:-0.9, seq:[1,4,9,16,25], ans:36, why:'Square numbers: 1×1, 2×2, 3×3, and so on. Next is 6×6.'},
+ {id:'S3', a:.95, b:-0.4, seq:[2,3,5,8,13,21], ans:34, why:'Each number is the sum of the two before it: 13 + 21.'},
+ {id:'S4', a:.95, b:0.3, seq:[3,5,9,17,33], ans:65, why:'Double the number and subtract 1. The gaps double each time: 2, 4, 8, 16, 32.'},
+ {id:'S5', a:.90, b:0.9, seq:[2,6,3,9,6,18,15], ans:45, why:'Alternate between multiplying by 3 and subtracting 3.'},
+ {id:'S6', a:.85, b:1.6, seq:[1,2,5,11,21,36], ans:57, why:'The gaps are 1, 3, 6, 10, 15; each gap grows by one more than the last, so the next gap is 21.'}
+];
+
+const VER_PRACTICE = {id:'VP', q:'<p>CAT is to KITTEN as DOG is to …</p>', opts:['bone','puppy','bark','kennel','wolf'], key:1, why:'A kitten is a young cat; a puppy is a young dog.'};
+const VER = [
+ {id:'V1', a:.70, b:-1.6, q:'<p>BIRD is to NEST as BEE is to …</p>', opts:['honey','hive','flower','wax','swarm'], key:1, why:'A nest is where a bird lives; a hive is where a bee lives.'},
+ {id:'V2', a:.75, b:-0.6, q:'<p>Mia is older than Leo. Leo is older than Sam. Ava is older than Mia.</p><p>Who is the second oldest?</p>', opts:['Ava','Mia','Leo','Sam','It cannot be determined'], key:1, why:'From oldest to youngest: Ava, Mia, Leo, Sam.'},
+ {id:'V3', a:.80, b:-0.4, q:'<p>Which word is most nearly <em>opposite</em> in meaning to SCARCE?</p>', opts:['rare','hidden','costly','abundant','minor'], key:3, why:'Scarce means in short supply; abundant means plentiful. Rare is a synonym, not an opposite.'},
+ {id:'V4', a:.80, b:0.1, q:'<p>Some doctors are runners. All runners are early risers.</p><p>Which statement must be true?</p>', opts:['All doctors are early risers','No doctors are early risers','All early risers are runners','Some doctors are early risers','None of these must be true'], key:3, why:'The doctors who are runners are also early risers, so at least some doctors are early risers. Nothing is said about the other doctors.'},
+ {id:'V5', a:.80, b:0.6, q:'<p>ARCHIPELAGO is to ISLAND as CONSTELLATION is to …</p>', opts:['galaxy','sky','star','planet','orbit'], key:2, why:'An archipelago is a group of islands; a constellation is a group of stars.'},
+ {id:'V6', a:.70, b:0.7, q:'<p>If the alarm is on, the light is red. The light is red.</p><p>What follows?</p>', opts:['The alarm is on','The alarm is off','The light will change soon','Nothing definite follows about the alarm'], key:3, why:'The light could be red for some other reason. Concluding that the alarm is on is a classic error called affirming the consequent.'},
+ {id:'V7', a:.75, b:1.2, q:'<p>No zemps are larks. Some voms are larks.</p><p>Which statement must be true?</p>', opts:['Some voms are zemps','No voms are zemps','Some voms are not zemps','Some zemps are not voms','None of these must be true'], key:2, why:'The voms that are larks cannot be zemps, so at least some voms are not zemps. The other statements could be true but don’t have to be.'}
+];
+
+const ROT_PRACTICE = {id:'RP', seed:30, t:[[0,0],[0,1],[0,2],[1,2]], alt:[[0,0],[0,1],[0,2],[1,1]], ang:[70,160,250,320]};
+const ROT = [
+ {id:'R1', a:.65, b:-1.4, seed:31, t:[[0,0],[0,1],[0,2],[0,3],[1,3]], alt:[[0,0],[0,1],[0,2],[0,3],[1,2]], ang:[35,75,300,250]},
+ {id:'R2', a:.70, b:-0.9, seed:32, t:[[0,0],[1,0],[0,1],[1,1],[0,2]], alt:[[0,0],[1,0],[0,1],[0,2],[-1,2]], ang:[60,110,200,290]},
+ {id:'R3', a:.70, b:-0.3, seed:33, t:[[1,0],[2,0],[0,1],[1,1],[1,2]], alt:[[1,0],[2,0],[1,1],[1,2],[2,1]], ang:[80,145,215,320]},
+ {id:'R4', a:.75, b:0.3, seed:34, t:[[0,0],[1,0],[1,1],[1,2],[2,2],[3,2]], alt:[[0,0],[1,0],[1,1],[1,2],[2,2],[2,3]], ang:[100,160,240,35]},
+ {id:'R5', a:.75, b:0.8, seed:35, t:[[0,0],[0,1],[1,1],[2,1],[2,2],[3,2],[2,0]], alt:[[0,0],[0,1],[1,1],[2,1],[2,2],[3,2],[1,2]], ang:[125,170,220,300]},
+ {id:'R6', a:.75, b:1.3, seed:36, t:[[0,0],[1,0],[1,1],[1,2],[1,3],[2,2],[3,2],[3,1]], alt:[[0,0],[1,0],[1,1],[1,2],[1,3],[2,2],[3,2],[3,3]], ang:[150,195,260,55]}
+];
+
+const DS_PRACTICE = [[5,3],[2,8,4]];
+const DS = [
+ {id:'D3', a:.60, b:-1.9, seq:[7,2,9]},
+ {id:'D4', a:.65, b:-1.0, seq:[4,8,1,6]},
+ {id:'D5', a:.70, b:-0.2, seq:[3,9,5,2,8]},
+ {id:'D6', a:.70, b:0.6, seq:[6,1,7,4,9,3]},
+ {id:'D7', a:.70, b:1.4, seq:[5,8,2,6,1,9,4]},
+ {id:'D8', a:.65, b:2.1, seq:[9,4,7,1,5,3,8,2]},
+ {id:'D9', a:.60, b:2.8, seq:[3,7,1,9,4,8,2,6,5]}
+];
+
+// Advanced block: offered only to people whose main-test estimate is high (two-stage design).
+// Items that were never offered are missing by design and are simply left out of the likelihood.
+const SUB = [[[0,1,3,5,6],[1,5]], [[2,3,4,7],[3,7]], [[0,2,5,6,7],[0,6]]];
+const H3S = [[[0,3,6],[3,4]], [[1,2,5],[2,7]], [[2,4,6,7],[0,4]]];
+const H3D = [[[0],[1,2]], [[1,3],[3]], [[2],[0,2]]];
+const union = (a, b) => [...new Set([...a, ...b])].sort((p,q) => p - q);
+const minus = (a, b) => a.filter(v => !b.includes(v));
+const ADV = [
+ {id:'H1', kind:'mat', a:.90, b:1.9, seed:1111,
+  gen:(r,c) => [{t:'spokes', noDot:true, k: c < 2 ? SUB[r][c] : minus(SUB[r][0], SUB[r][1])}, {t:'inner', s:['circle','square','triangle'][(r+c)%3], f:['g','b','w'][(c-r+3)%3]}],
+  vars:[x => {x[0].k = xorK(x[0].k,[0,6])}, x => {x[1].s='triangle'}, x => {x[1].f='b'}],
+  why:'In each row, the lines in the second cell are taken away from the first. Inner shapes and inner shadings each appear once per row and column: a grey square in the centre.'},
+ {id:'H2', kind:'mat', a:.90, b:2.2, seed:1212,
+  gen:(r,c) => [{t:'shape', s:'arrow', n:[1,2,3][(r+c)%3], f:['b','w','g'][(c-r+3)%3], rot:[[90,45,135],[180,90,270],[45,270,315]][r][c]}],
+  vars:[x => {x[0].rot=135}, x => {x[0].n=3}, x => {x[0].f='g'}],
+  why:'In each row, the third arrow’s angle is the sum of the first two (90°+45°, 180°+90°, 45°+270°). A fixed turning step does not fit rows 1 and 2. Counts and shadings each appear once per row and column: two black arrows pointing up and to the left.'},
+ {id:'H3', kind:'mat', a:.90, b:2.5, seed:1313,
+  gen:(r,c) => [{t:'spokes', k: c < 2 ? H3S[r][c] : xorK(H3S[r][0], H3S[r][1])}, {t:'dots', k: c < 2 ? H3D[r][c] : union(H3D[r][0], H3D[r][1])}],
+  vars:[x => {x[0].k = xorK(x[0].k,[4])}, x => {x[1].k = xorK(x[1].k,[2])}, x => {x[0].k = xorK(x[0].k,[3])}],
+  why:'The two layers follow different rules. Lines: the third cell keeps lines found in exactly one of the first two (shared lines cancel). Corner dots: the third cell keeps every dot found in either of the first two (shared dots stay).'},
+ {id:'HS1', kind:'ser', a:.85, b:2.0, seq:[2,3,7,16,32,57], ans:93, why:'The gaps are square numbers: 1, 4, 9, 16, 25. The next gap is 36.'},
+ {id:'HS2', kind:'ser', a:.85, b:2.6, seq:[1,2,4,7,28,33,198], ans:205, why:'The operations alternate and grow: +1, ×2, +3, ×4, +5, ×6, so the next step is +7.'}
+];
+
+/* ---------------- build items ---------------- */
+function buildMatrix(it){
+  it.cells = []; for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) it.cells.push(it.gen(r,c));
+  const ans = it.cells[8], opts = [];
+  for (let m = 0; m < 8; m++){ const o = clone(ans); for (let j = 0; j < 3; j++) if (m & (1 << j)) it.vars[j](o); opts.push({m, cell:o}); }
+  it.options = shuffle(opts, it.seed); it.key = it.options.findIndex(o => o.m === 0); it.nopt = 8; it.c = 1/8;
+  const sigs = new Set(it.options.map(o => JSON.stringify(o.cell)));
+  if (sigs.size !== 8) console.error('Duplicate options in', it.id);
+}
+function buildRot(it){
+  const types = shuffle(['same','mirror','alt','altmirror'], it.seed);
+  const angs = shuffle(it.ang, it.seed + 7);
+  it.options = types.map((ty, i) => ({ty, ang:angs[i]}));
+  it.key = types.indexOf('same'); it.nopt = 4; it.c = .25;
+  it.unit = Math.min(17, 41 / Math.max(radius(it.t), radius(it.alt)));
+}
+[MAT_PRACTICE, ...MAT, ...ADV.filter(i => i.kind === 'mat')].forEach(buildMatrix);
+ADV.filter(i => i.kind === 'ser').forEach(it => it.c = 0);
+[ROT_PRACTICE, ...ROT].forEach(buildRot);
+SER.forEach(it => it.c = 0);
+[VER_PRACTICE, ...VER].forEach(it => { it.nopt = it.opts.length; it.c = 1 / it.opts.length; });
+
+const SECTIONS = [
+ {id:'mat', kind:'mat', title:'Matrix reasoning', time:270, items:MAT, practice:MAT_PRACTICE, prompt:'Which option completes the pattern?',
+  intro:'Each puzzle is a 3 × 3 grid with the bottom-right cell missing. Work out the rules that run across the rows and down the columns, then pick the option that fits all of them.',
+  detail:'Fluid reasoning: finding rules in new material'},
+ {id:'ser', kind:'ser', title:'Number series', time:105, items:SER, practice:SER_PRACTICE, prompt:'What number comes next?',
+  intro:'Find the rule that produces each sequence and type the next number. Work it out in your head.',
+  detail:'Inductive and quantitative reasoning'},
+ {id:'ver', kind:'ver', title:'Verbal reasoning', time:90, items:VER, practice:VER_PRACTICE,
+  intro:'Analogies, word meaning and short logic problems. For the logic problems, go only by what the statements say, even if they sound odd.',
+  detail:'Verbal knowledge and deduction'},
+ {id:'rot', kind:'rot', title:'Mental rotation', time:90, items:ROT, practice:ROT_PRACTICE, prompt:'Which option is the same shape, only turned?',
+  intro:'Exactly one option is the shape on the left turned around on the page. The others are mirror images or a shape with one square moved. The correct answer is never flipped over.',
+  detail:'Visual-spatial processing'},
+ {id:'wm', kind:'wm', title:'Backward digit span', items:DS,
+  intro:'Digits appear one at a time. When they stop, type them in reverse order. Each sequence is one digit longer than the last, and each is shown only once.',
+  detail:'Working memory'},
+ {id:'adv', kind:'adv', title:'Advanced reasoning', time:180, items:ADV, detail:'Harder matrices and series for high scorers'}
+];
+const partLabel = i => i < 5 ? `Part ${i+1} of 5` : 'Extra part';
+const kindOf = (sec, it) => it.kind || sec.kind;
+const PROMPT = {mat:'Which option completes the pattern?', ser:'What number comes next?', rot:'Which option is the same shape, only turned?'};
+const advGiven = () => !!(S.meta.adv && S.meta.adv.start);
+
+/* ---------------- state ---------------- */
+const S = { phase:'welcome', pre:{age:null, eng:null, prior:null}, stored:null, sec:0, idx:0, resp:{}, meta:{},
+            timer:null, deadline:0, timed:false, leaves:0, t0:0, ds:[], dsFails:0, inTest:false, token:0, finishedAt:null };
+try { S.stored = localStorage.getItem(STORE_KEY); } catch(e) { S.stored = null; }
+
+/* ---------------- helpers ---------------- */
+function render(html){ app.innerHTML = html; window.scrollTo(0,0); }
+function setWhere(a, b){ document.getElementById('where').innerHTML = a ? `<b>${a}</b>${b ? '<br>' + b : ''}` : ''; }
+function fmtDur(s){ const m = Math.floor(s/60), r = s % 60; return r ? `${m} min ${r} s` : `${m} min`; }
+function fmtClock(ms){ const s = Math.max(0, Math.ceil(ms/1000)); return Math.floor(s/60) + ':' + String(s % 60).padStart(2,'0'); }
+function showTimer(on){ document.getElementById('timer').hidden = !on; }
+function erf(x){ const t = 1/(1 + .3275911*Math.abs(x)); const y = 1 - (((((1.061405429*t - 1.453152027)*t) + 1.421413741)*t - .284496736)*t + .254829592)*t*Math.exp(-x*x); return x >= 0 ? y : -y; }
+const Phi = z => .5 * (1 + erf(z / Math.SQRT2));
+function ordinal(n){ const v = n % 100; if (v >= 11 && v <= 13) return n + 'th'; return n + ({1:'st',2:'nd',3:'rd'}[n % 10] || 'th'); }
+function pctPhrase(p){ if (p >= 99.5) return 'above the 99th'; if (p < 1) return 'below the 1st'; return 'the ' + ordinal(Math.round(p)); }
+function pctText(p){ if (p >= 99.5) return 'above the 99th'; if (p < 1) return 'below the 1st'; return ordinal(Math.round(p)); }
+
+function confirmBox(msg, yes, no){
+  return new Promise(res => {
+    const d = document.createElement('div'); d.className = 'modal';
+    d.innerHTML = `<div class="box" role="dialog" aria-modal="true"><p>${msg}</p><div class="row"><button class="ghost" data-a="0">${no}</button><button class="primary" data-a="1">${yes}</button></div></div>`;
+    document.body.appendChild(d); d.querySelector('[data-a="1"]').focus();
+    d.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; d.remove(); res(b.dataset.a === '1'); });
+  });
+}
+
+/* focus tracking during timed work */
+window.addEventListener('blur', () => { if (S.timed) S.leaves++; });
+window.addEventListener('beforeunload', e => { if (S.inTest){ e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------------- welcome ---------------- */
+function chip(group, val, label){ return `<button class="chip" data-g="${group}" data-v="${val}" aria-pressed="${S.pre[group] === val}">${label}</button>`; }
+function renderWelcome(){
+  S.phase = 'welcome'; setWhere(''); showTimer(false);
+  if (S.stored && S.pre.prior === null) S.pre.prior = 'yes';
+  const prevNote = S.stored ? `<p class="note">This browser started Crim-eval before (${new Date(S.stored).toLocaleDateString()}). Seeing items a second time raises scores, so your report will mark this as a retest.</p>` : '';
+  render(`
+  <section class="welcome">
+    <h1 class="word">Crim-eval<span></span></h1>
+    <p class="lede">A ten-minute estimate of general cognitive ability, built from the kinds of tasks that full-length intelligence tests rely on most. You get a likely range on the usual IQ scale (average 100, standard deviation 15), not just a single number.</p>
+    <ol class="parts">
+      ${SECTIONS.filter(s => s.id !== 'adv').map((s,i) => `<li><span class="num">${i+1}</span><span class="nm">${s.title}<small>${s.detail}</small></span><span class="tm">${s.time ? s.items.length + ' items, ' + fmtDur(s.time) : 'up to 7 sequences, about 1 min'}</span></li>`).join('')}
+    </ol>
+    <p class="muted small" style="margin-top:-18px;margin-bottom:30px">If you score high, you’ll be offered an extra part with 5 much harder items (3 min). It lets the test measure up into the 140s.</p>
+    <div class="cols">
+      <div>
+        <h3>Before you start</h3>
+        <ul class="rules">
+          <li>Find a quiet place and about 12 free minutes. A computer works best; a phone is fine.</li>
+          <li>Work in your head: no calculator, notes, search or help from anyone.</li>
+          <li>Each part opens with an untimed practice item. Timers can’t be paused once a part starts.</li>
+          <li>Unanswered items count as wrong, so guess if time is running out.</li>
+          <li>Leaving this page during a timed part is recorded on your report.</li>
+        </ul>
+      </div>
+      <div class="qs">
+        <div class="q"><p>Your age</p><div class="chips">${chip('age','u16','Under 16')}${chip('age','adult','16 to 65')}${chip('age','o65','Over 65')}</div></div>
+        <div class="q"><p>Is English your first language, or are you fully fluent?</p><div class="chips">${chip('eng','yes','Yes')}${chip('eng','no','No')}</div></div>
+        <div class="q"><p>Have you taken Crim-eval before?</p><div class="chips">${chip('prior','no','No')}${chip('prior','yes','Yes')}</div></div>
+      </div>
+    </div>
+    ${prevNote}
+    <div class="startrow">
+      <button class="primary big" id="start" ${Object.values(S.pre).includes(null) ? 'disabled' : ''}>Start part 1</button>
+      <span class="hint" id="starthint">${Object.values(S.pre).includes(null) ? 'Answer the three questions to begin.' : 'About 12 minutes including practice.'}</span>
+    </div>
+  </section>`);
+  app.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
+    S.pre[b.dataset.g] = b.dataset.v;
+    app.querySelectorAll(`.chip[data-g="${b.dataset.g}"]`).forEach(x => x.setAttribute('aria-pressed', x === b));
+    const ready = !Object.values(S.pre).includes(null);
+    document.getElementById('start').disabled = !ready;
+    document.getElementById('starthint').textContent = ready ? 'About 12 minutes including practice.' : 'Answer the three questions to begin.';
+  }));
+  document.getElementById('start').addEventListener('click', () => {
+    try { localStorage.setItem(STORE_KEY, new Date().toISOString()); } catch(e) {}
+    S.inTest = true; S.resp = {}; S.meta = {}; S.ds = []; S.dsFails = 0; S.leaves = 0;
+    SECTIONS.forEach(s => { if (s.kind !== 'wm') S.resp[s.id] = s.items.map(() => ({ans:null, t:0, first:null, changes:0})); });
+    renderIntro(0);
+  });
+}
+
+/* ---------------- stimulus markup ---------------- */
+function stimHTML(kind, it, sel, mode){
+  // mode: 'test' | 'practice' | 'review'
+  if (kind === 'mat'){
+    const grid = `<div class="matrix">${it.cells.slice(0,8).map(c => `<div class="mc">${cellSVG(c)}</div>`).join('')}<div class="mc q">${mode === 'review' ? cellSVG(it.options[it.key].cell) : '<span>?</span>'}</div></div>`;
+    if (mode === 'review') return grid;
+    return grid + `<div class="opts o8" role="group" aria-label="Answer options">${it.options.map((o,i) => `<button class="opt${sel === i ? ' sel' : ''}" data-v="${i}" aria-pressed="${sel === i}" aria-label="Option ${i+1}"><span class="n">${i+1}</span>${cellSVG(o.cell)}</button>`).join('')}</div>`;
+  }
+  if (kind === 'ser'){
+    const nums = it.seq.map((n,i) => `<span>${n}</span>${i < it.seq.length - 1 ? '<span class="c">,</span>' : '<span class="c">,</span>'}`).join('');
+    const tail = mode === 'review' ? `<span class="ansfill">${it.ans}</span>` : `<input id="numans" type="text" inputmode="numeric" autocomplete="off" aria-label="Next number" placeholder="?" value="${sel ?? ''}">`;
+    return `<div class="seq">${nums}${tail}</div>`;
+  }
+  if (kind === 'ver'){
+    return `<div class="vq">${it.q}</div><div class="vopts" role="group" aria-label="Answer options">${it.opts.map((o,i) => `<button class="vopt${sel === i ? ' sel' : ''}" data-v="${i}" aria-pressed="${sel === i}"><span class="n">${'ABCDE'[i]}</span><span>${o}</span></button>`).join('')}</div>`;
+  }
+  if (kind === 'rot'){
+    const opt = o => {
+      const cells = (o.ty === 'alt' || o.ty === 'altmirror') ? it.alt : it.t;
+      return polySVG(cells, o.ang, o.ty === 'mirror' || o.ty === 'altmirror', it.unit);
+    };
+    return `<div class="rot"><figure class="target">${polySVG(it.t, 0, false, it.unit)}<figcaption>Shape</figcaption></figure>
+      <div class="opts" role="group" aria-label="Answer options">${it.options.map((o,i) => `<button class="opt${sel === i ? ' sel' : ''}" data-v="${i}" aria-pressed="${sel === i}" aria-label="Option ${i+1}"><span class="n">${i+1}</span>${opt(o)}</button>`).join('')}</div></div>`;
+  }
+  return '';
+}
+const isCorrect = (kind, it, ans) => kind === 'ser' ? (ans !== null && ans !== '' && Number(String(ans).trim()) === it.ans) : ans === it.key;
+const answerLabel = (kind, it, v) => v === null || v === '' ? 'no answer' : kind === 'ser' ? v : kind === 'ver' ? `${'ABCDE'[v]} (${it.opts[v]})` : `option ${v + 1}`;
+
+/* ---------------- section intro with practice ---------------- */
+function renderIntro(i){
+  const sec = SECTIONS[i]; S.sec = i; S.phase = 'intro'; showTimer(false);
+  setWhere(`${partLabel(i)}: ${sec.title}`, 'Instructions and practice');
+  const doneNote = i > 0 ? `<p class="done">Part ${i} is complete.</p>` : '';
+  if (sec.kind === 'wm') return renderWMIntro(doneNote);
+  const p = sec.practice;
+  render(`<section class="intro">
+    ${doneNote}
+    <p class="part">Part ${i+1} of 5</p>
+    <h2>${sec.title}</h2>
+    <p class="lede">${sec.intro}</p>
+    <p class="muted">${sec.items.length} items in ${fmtDur(sec.time)}. You can move back and forth between items and change answers until time runs out.</p>
+    <div class="practice">
+      <h3>Practice item</h3>
+      <p class="hint">Not timed, not scored.</p>
+      ${sec.kind === 'ver' ? '' : `<p class="stem">${sec.prompt}</p>`}
+      <div class="stage" id="pstage">${stimHTML(sec.kind, p, null, 'practice')}</div>
+      ${sec.kind === 'ser' ? '<div class="row" style="justify-content:center;margin-top:14px"><button class="ghost" id="chk">Check answer</button></div>' : ''}
+      <div class="fb" id="fb" aria-live="polite"></div>
+    </div>
+    <div class="row"><button class="primary big" id="go" disabled>Start the timed part (${fmtDur(sec.time)})</button><span class="hint" id="gohint">Answer the practice item to continue.</span></div>
+  </section>`);
+  const fb = document.getElementById('fb'), go = document.getElementById('go');
+  const feedback = (ok, keyText) => {
+    fb.className = 'fb ' + (ok ? 'good' : 'bad');
+    fb.innerHTML = (ok ? '<b>Correct.</b> ' : `<b>Not quite.</b> The answer is ${keyText}. `) + (p.why || rotWhy(p));
+    go.disabled = false; document.getElementById('gohint').textContent = 'The timer starts when you press the button.';
+  };
+  if (sec.kind === 'ser'){
+    const inp = document.getElementById('numans');
+    const check = () => { if (inp.value.trim() === '') return; feedback(isCorrect('ser', p, inp.value), p.ans); };
+    document.getElementById('chk').addEventListener('click', check);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+  } else {
+    document.getElementById('pstage').addEventListener('click', e => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      const v = +b.dataset.v;
+      document.querySelectorAll('#pstage [data-v]').forEach(x => { x.classList.toggle('sel', x === b); x.setAttribute('aria-pressed', x === b); x.classList.toggle('key', +x.dataset.v === p.key && v !== p.key); });
+      feedback(v === p.key, sec.kind === 'ver' ? `${'ABCDE'[p.key]}, “${p.opts[p.key]}”` : `option ${p.key + 1}`);
+    });
+  }
+  go.addEventListener('click', () => startTimed(i));
+}
+function rotWhy(it){
+  const o = it.options[it.key];
+  return `It is the shape turned ${o.ang}° clockwise. The other options are mirror images of it, or of a shape with one square moved.`;
+}
+
+/* ---------------- timed sections ---------------- */
+function startTimed(i){
+  const sec = SECTIONS[i]; S.sec = i; S.idx = 0; S.timed = true; S.token++;
+  S.deadline = Date.now() + sec.time * 1000; S.meta[sec.id] = {start:Date.now()};
+  showTimer(true); tick();
+  clearInterval(S.timer); S.timer = setInterval(tick, 250);
+  renderItem();
+}
+function tick(){
+  const rem = S.deadline - Date.now();
+  const t = document.getElementById('timer'); document.getElementById('tval').textContent = fmtClock(rem);
+  t.classList.toggle('low', rem <= 30000);
+  if (rem <= 0 && S.phase === 'item') finishSection(true);
+}
+function bubbles(sec){
+  const R = S.resp[sec.id];
+  return `<div class="sheet" aria-label="Items in this part">${sec.items.map((_,i) => { const a = R[i].ans !== null && R[i].ans !== ''; return `<button class="bub${a ? ' ans' : ''}${i === S.idx ? ' cur' : ''}" data-i="${i}" aria-label="Item ${i+1}${a ? ', answered' : ''}"${i === S.idx ? ' aria-current="step"' : ''}>${i+1}</button>`; }).join('')}</div>`;
+}
+function renderItem(){
+  const sec = SECTIONS[S.sec], it = sec.items[S.idx], r = S.resp[sec.id][S.idx];
+  S.phase = 'item'; S.t0 = performance.now();
+  setWhere(`${partLabel(S.sec)}: ${sec.title}`, `Item ${S.idx+1} of ${sec.items.length}`);
+  const last = S.idx === sec.items.length - 1, kind = kindOf(sec, it);
+  render(`<section class="item">
+    ${bubbles(sec)}
+    ${kind === 'ver' ? '' : `<p class="stem">${PROMPT[kind]}</p>`}
+    <div class="stage" id="stage">${stimHTML(kind, it, r.ans, 'test')}</div>
+    <nav class="itemnav"><button class="ghost" id="bk" ${S.idx === 0 ? 'disabled' : ''}>Back</button><button class="primary" id="nx">${last ? 'Finish this part' : 'Next'}</button></nav>
+  </section>`);
+  document.getElementById('stage').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) select(+b.dataset.v); });
+  app.querySelectorAll('.bub').forEach(b => b.addEventListener('click', () => go(+b.dataset.i)));
+  document.getElementById('bk').addEventListener('click', () => go(S.idx - 1));
+  document.getElementById('nx').addEventListener('click', next);
+  if (kind === 'ser'){
+    const inp = document.getElementById('numans');
+    inp.addEventListener('input', () => { inp.value = inp.value.replace(/[^0-9-]/g, ''); record(inp.value === '' ? null : inp.value); });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); next(); } });
+    if (window.matchMedia('(pointer:fine)').matches) inp.focus();
+  }
+}
+function record(v){
+  const sec = SECTIONS[S.sec], r = S.resp[sec.id][S.idx];
+  if (r.ans !== null && v !== r.ans) r.changes++;
+  if (r.first === null && v !== null) r.first = r.t + (performance.now() - S.t0);
+  r.ans = v;
+  const bub = app.querySelector(`.bub[data-i="${S.idx}"]`); if (bub) bub.classList.toggle('ans', v !== null && v !== '');
+}
+function select(v){
+  const sec = SECTIONS[S.sec], it = sec.items[S.idx];
+  if (!it.nopt || v < 0 || v >= it.nopt) return;
+  record(v);
+  app.querySelectorAll('#stage [data-v]').forEach(x => { const on = +x.dataset.v === v; x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on); });
+}
+function leaveItem(){ if (S.phase !== 'item') return; const r = S.resp[SECTIONS[S.sec].id][S.idx]; r.t += performance.now() - S.t0; }
+function go(i){ const n = SECTIONS[S.sec].items.length; if (i < 0 || i >= n) return; leaveItem(); S.idx = i; renderItem(); }
+async function next(){
+  const sec = SECTIONS[S.sec];
+  if (S.idx < sec.items.length - 1) return go(S.idx + 1);
+  const open = S.resp[sec.id].filter(r => r.ans === null || r.ans === '').length;
+  if (open){
+    const tok = S.token;
+    const ok = await confirmBox(`You have ${open} unanswered item${open > 1 ? 's' : ''} and ${fmtClock(S.deadline - Date.now())} left. Unanswered items count as wrong.`, 'Finish this part', 'Keep working');
+    if (!ok || tok !== S.token || S.phase !== 'item') return;
+  }
+  finishSection(false);
+}
+function finishSection(timedOut){
+  if (S.phase !== 'item') return;
+  leaveItem(); clearInterval(S.timer); S.timed = false; S.token++;
+  document.querySelectorAll('.modal').forEach(m => m.remove());
+  const sec = SECTIONS[S.sec];
+  Object.assign(S.meta[sec.id], {timedOut, used:Math.min(sec.time*1000, Date.now() - S.meta[sec.id].start)});
+  S.phase = 'between'; showTimer(false);
+  if (sec.id === 'adv') return finishTest();
+  renderIntro(S.sec + 1);
+}
+
+/* ---------------- backward digit span ---------------- */
+function renderWMIntro(doneNote){
+  S.phase = 'intro';
+  const sec = SECTIONS[4];
+  render(`<section class="intro">
+    ${doneNote}
+    <p class="part">Part 5 of 5</p>
+    <h2>${sec.title}</h2>
+    <p class="lede">${sec.intro}</p>
+    <p class="muted">For example, if you see 4, 1, 7 you type 714. Don’t write the digits down or use your fingers to keep track. The task stops after two misses in a row.</p>
+    <div class="practice">
+      <h3>Practice sequence</h3>
+      <p class="hint">Not scored.</p>
+      <div class="wmstage" id="wm"><button class="primary" id="pstart">Show practice digits</button></div>
+      <div class="fb" id="fb" aria-live="polite"></div>
+    </div>
+    <div class="row"><button class="primary big" id="go" disabled>Start the memory task</button><span class="hint" id="gohint">Do the practice sequence to continue.</span></div>
+  </section>`);
+  let pi = 0;
+  const runPractice = async () => {
+    const seq = DS_PRACTICE[pi % DS_PRACTICE.length]; pi++;
+    const ans = await presentAndAsk(document.getElementById('wm'), seq);
+    const ok = ans === seq.slice().reverse().join('');
+    const fb = document.getElementById('fb');
+    fb.className = 'fb ' + (ok ? 'good' : 'bad');
+    fb.innerHTML = ok ? `<b>Correct.</b> ${seq.join(', ')} reversed is ${seq.slice().reverse().join('')}.` : `<b>Not quite.</b> The digits were ${seq.join(', ')}, so the answer was ${seq.slice().reverse().join('')}.`;
+    document.getElementById('wm').innerHTML = `<button class="ghost" id="pstart">Try another practice sequence</button>`;
+    document.getElementById('pstart').addEventListener('click', runPractice);
+    document.getElementById('go').disabled = false;
+    document.getElementById('gohint').textContent = 'Sequences are shown once and can’t be replayed.';
+  };
+  document.getElementById('pstart').addEventListener('click', runPractice);
+  document.getElementById('go').addEventListener('click', runWM);
+}
+async function presentAndAsk(stage, seq){
+  stage.innerHTML = '<div class="digit dim" aria-hidden="true">+</div>';
+  await wait(800);
+  for (const d of seq){ stage.innerHTML = `<div class="digit" aria-live="assertive">${d}</div>`; await wait(900); stage.innerHTML = '<div class="digit"></div>'; await wait(200); }
+  stage.innerHTML = `<form class="wmform" id="wmf"><label for="wmin">Type the digits in reverse order</label><input id="wmin" inputmode="numeric" autocomplete="off" maxlength="12"><button class="primary" type="submit">Submit</button></form>`;
+  const inp = document.getElementById('wmin'); inp.focus();
+  inp.addEventListener('input', () => { inp.value = inp.value.replace(/[^0-9]/g, ''); });
+  return new Promise(res => document.getElementById('wmf').addEventListener('submit', e => {
+    e.preventDefault(); const v = inp.value.replace(/[^0-9]/g, '');
+    stage.innerHTML = '<div class="digit dim" aria-hidden="true"></div>';
+    res(v);
+  }, {once:true}));
+}
+async function runWM(){
+  S.phase = 'wm'; S.timed = true; S.ds = []; S.dsFails = 0;
+  render(`<section class="item"><div class="sheet" id="wmsheet"></div><div class="wmstage" id="wm"></div><p class="hint" style="text-align:center;margin-top:14px">Watch the digits, then type them backwards.</p></section>`);
+  for (let k = 0; k < DS.length; k++){
+    setWhere('Part 5 of 5: Backward digit span', `Sequence ${k+1} of ${DS.length} (${DS[k].seq.length} digits)`);
+    document.getElementById('wmsheet').innerHTML = DS.map((_,i) => `<span class="bub${i < k ? ' ans' : ''}${i === k ? ' cur' : ''}" aria-hidden="true">${DS[i].seq.length}</span>`).join('');
+    await wait(500);
+    const t0 = performance.now();
+    const ans = await presentAndAsk(document.getElementById('wm'), DS[k].seq);
+    const ok = ans === DS[k].seq.slice().reverse().join('');
+    S.ds.push({ans, ok, t:performance.now() - t0});
+    S.dsFails = ok ? 0 : S.dsFails + 1;
+    if (S.dsFails >= 2) break;
+  }
+  S.timed = false;
+  afterWM();
+}
+function finishTest(){ S.timed = false; S.inTest = false; S.finishedAt = new Date(); renderResults(); }
+function afterWM(){
+  const main = eap(scoredItems().filter(x => x.use));
+  if (main.theta < 1.2) return finishTest();
+  S.phase = 'intro'; S.sec = 5; showTimer(false);
+  setWhere('Extra part: Advanced reasoning', 'Optional');
+  render(`<section class="intro">
+    <p class="done">Part 5 is complete.</p>
+    <p class="part">Extra part</p>
+    <h2>Advanced reasoning</h2>
+    <p class="lede">You did well enough that the main test can’t pin down your level, because it runs short of hard items. This extra part has 5 much harder items: 3 matrices and 2 number series, with 3 minutes in total.</p>
+    <p class="muted">The rules work the same way as before, but each item combines more of them. Most people who reach this part solve one or two items. It is scored like everything else, so wrong answers count too. If you skip it, your report is based on the main test alone and can’t measure as high.</p>
+    <div class="row" style="margin-top:22px"><button class="primary big" id="go">Start the extra part (3 min)</button><button class="ghost" id="skip">Skip and see my report</button></div>
+  </section>`);
+  document.getElementById('go').addEventListener('click', () => startTimed(5));
+  document.getElementById('skip').addEventListener('click', () => { S.meta.advSkipped = true; finishTest(); });
+}
+
+/* ---------------- scoring ---------------- */
+function scoredItems(){
+  const list = [];
+  for (const sec of SECTIONS){
+    if (sec.kind === 'wm'){
+      sec.items.forEach((it, i) => list.push({sec:sec.id, it, a:it.a, b:it.b, c:0, u: S.ds[i] ? S.ds[i].ok : false, reached: !!S.ds[i], use:true}));
+      continue;
+    }
+    if (sec.id === 'adv' && !advGiven()) continue;
+    sec.items.forEach((it, i) => {
+      const r = S.resp[sec.id][i];
+      list.push({sec:sec.id, it, r, a:it.a, b:it.b, c:it.c, u:isCorrect(kindOf(sec, it), it, r.ans), reached: r.ans !== null && r.ans !== '', use: !(sec.id === 'ver' && S.pre.eng === 'no')});
+    });
+  }
+  return list;
+}
+function eap(items){
+  const th = [], lp = [];
+  for (let t = -4; t <= 4.0001; t += 0.01){
+    let l = -t*t/2;
+    for (const it of items){ const p = it.c + (1 - it.c) / (1 + Math.exp(-D * it.a * (t - it.b))); l += it.u ? Math.log(p) : Math.log(1 - p); }
+    th.push(t); lp.push(l);
+  }
+  const mx = Math.max(...lp), w = lp.map(v => Math.exp(v - mx)), sw = w.reduce((a,b) => a + b, 0);
+  const mean = w.reduce((s,v,i) => s + v * th[i], 0) / sw;
+  const sd = Math.sqrt(w.reduce((s,v,i) => s + v * (th[i] - mean) ** 2, 0) / sw);
+  return {theta:mean, se:sd};
+}
+function classify(iq){
+  if (iq >= 130) return 'Extremely high'; if (iq >= 120) return 'Very high'; if (iq >= 110) return 'High average';
+  if (iq >= 90) return 'Average'; if (iq >= 80) return 'Low average'; if (iq >= 70) return 'Very low'; return 'Extremely low';
+}
+
+/* ---------------- results ---------------- */
+function curveSVG(iq, lo, hi){
+  const W = 680, H = 230, x0 = 20, x1 = W - 20, base = 186, top = 40;
+  const cl = v => Math.max(40, Math.min(160, v));
+  const X = v => x0 + (cl(v) - 40) / 120 * (x1 - x0);
+  const Y = v => base - Math.exp(-0.5 * ((v - 100) / 15) ** 2) * (base - top);
+  let d = ''; for (let v = 40; v <= 160; v += 1) d += (v === 40 ? 'M' : 'L') + X(v).toFixed(1) + ' ' + Y(v).toFixed(1) + ' ';
+  const L = cl(lo), Hh = cl(hi);
+  let band = `M${X(L).toFixed(1)} ${base} `; for (let v = L; v <= Hh; v += 0.5) band += `L${X(v).toFixed(1)} ${Y(v).toFixed(1)} `; band += `L${X(Hh).toFixed(1)} ${Y(Hh).toFixed(1)} L${X(Hh).toFixed(1)} ${base} Z`;
+  const ticks = [55,70,85,100,115,130,145].map(v => `<line x1="${X(v)}" y1="${base}" x2="${X(v)}" y2="${base+6}" stroke="${INK}" stroke-width="1.2"/><text x="${X(v)}" y="${base+24}" text-anchor="middle" font-size="14" fill="#596067" font-family="Bahnschrift, DIN Alternate, Arial Narrow, sans-serif">${v}</text>`).join('');
+  const px = X(iq), py = Y(cl(iq));
+  return `<svg class="curve" viewBox="0 0 ${W} ${H}" role="img" aria-label="Normal curve of IQ scores with your estimated range from ${lo} to ${hi} shaded">
+    <g class="band"><path d="${band}" fill="#F2D9DE"/></g>
+    <path d="${d}" fill="none" stroke="${INK}" stroke-width="2"/>
+    <line x1="${x0}" y1="${base}" x2="${x1}" y2="${base}" stroke="${INK}" stroke-width="1.2"/>
+    ${ticks}
+    <line x1="${px}" y1="${base}" x2="${px}" y2="${Math.min(py, base) - 10}" stroke="#A3122F" stroke-width="3"/>
+    <circle cx="${px}" cy="${Math.min(py, base) - 10}" r="5" fill="#A3122F"/>
+    <text x="${px}" y="${Math.min(py, base) - 22}" text-anchor="middle" font-size="26" font-weight="700" fill="#A3122F" font-family="Bahnschrift, DIN Alternate, Arial Narrow, sans-serif">${iq}</text>
+  </svg>`;
+}
+
+function renderResults(){
+  S.phase = 'results'; showTimer(false); setWhere('Report', S.finishedAt ? S.finishedAt.toLocaleString([], {dateStyle:'medium', timeStyle:'short'}) : '');
+  const all = scoredItems(), used = all.filter(x => x.use);
+  const {theta, se} = eap(used);
+  const seT = Math.sqrt(se*se + PARAM_UNCERTAINTY*PARAM_UNCERTAINTY);
+  const iq = Math.round(100 + 15*theta), lo = Math.round(100 + 15*(theta - 1.645*seT)), hi = Math.round(100 + 15*(theta + 1.645*seT));
+  const pct = Phi(theta)*100, pLo = Phi(theta - 1.645*seT)*100, pHi = Phi(theta + 1.645*seT)*100;
+
+  // validity checks
+  const checks = []; let flags = 0;
+  const reasoning = all.filter(x => x.r);
+  const fast = reasoning.filter(x => x.r.first !== null && x.r.first < 2000).length;
+  const unanswered = reasoning.filter(x => !x.reached).length;
+  const timedOutParts = SECTIONS.filter(s => S.meta[s.id] && S.meta[s.id].timedOut).map(s => s.title.toLowerCase());
+  if (S.leaves === 0) checks.push(['ok','You stayed on this page during every timed part.']);
+  else { flags++; checks.push(['flag',`You left this page ${S.leaves} time${S.leaves > 1 ? 's' : ''} during timed work. If you looked anything up or got help, the score is not valid.`]); }
+  if (fast >= 4){ flags++; checks.push(['flag',`${fast} answers were given within 2 seconds of the item appearing, faster than careful work usually allows. Rushed or random answers pull the estimate toward guessing level.`]); }
+  else checks.push(['ok','Your response times look like careful work.']);
+  if (unanswered) checks.push(['info',`${unanswered} item${unanswered > 1 ? 's were' : ' was'} left unanswered and scored as wrong${timedOutParts.length ? ` (time ran out in ${timedOutParts.join(', ')})` : ''}.`]);
+  if (S.pre.prior === 'yes' || S.stored){ flags++; checks.push(['flag','This is a retest. Seeing the same items again typically raises scores by several points, so this result probably overestimates you.']); }
+  if (S.pre.eng === 'no') checks.push(['info','Verbal reasoning was left out of the estimate because English is not your first language. Your raw verbal score is still shown below.']);
+  if (S.pre.age !== 'adult'){ flags++; checks.push(['flag', `The scale assumes adults aged 16 to 65 and is not age-adjusted. ${S.pre.age === 'u16' ? 'Reasoning skills are still developing before 16, so this underestimates your standing among people your age.' : 'Speed-dependent reasoning declines with age, so this likely underestimates your standing among people your age.'}`]); }
+  const mc = reasoning.filter(x => x.c > 0), mcAcc = mc.filter(x => x.u).length / mc.length;
+  if (mcAcc < 0.3 && fast >= 4){ flags++; checks.push(['flag','Your multiple-choice accuracy is close to what random guessing produces. Treat this result as invalid.']); }
+  const status = flags === 0 ? ['ok','No problems detected'] : flags === 1 ? ['warn','Interpret with caution'] : ['warn','Probably not valid'];
+
+  const nUsed = used.length, nRight = used.filter(x => x.u).length;
+  let ceilNote = '';
+  if (nUsed - nRight <= 1) ceilNote = advGiven()
+    ? ' You answered nearly everything correctly, including the advanced items. That is the top of what Crim-eval can measure (the mid-to-high 140s), so your true score could be higher still.'
+    : ' You answered nearly everything correctly but skipped the extra part, so this estimate is capped near the main test’s ceiling (the mid-to-high 130s). Your true score could be higher.';
+  else if (nRight <= 4) ceilNote = ' You answered very few items correctly, which puts you at the floor of this short test. Below about 80 it has too few easy items to separate ability levels, so the true score could be lower or higher than shown. If you were rushed, distracted or unwell, the result is not meaningful.';
+  const secRows = SECTIONS.filter(sec => sec.id !== 'adv' || advGiven()).map(sec => {
+    const xs = all.filter(x => x.sec === sec.id), n = xs.filter(x => x.u).length;
+    const dots = xs.map(x => `<span class="dot${x.u ? ' y' : ''}${!x.reached ? ' na' : ''}" title="${x.it.id}: ${x.u ? 'correct' : x.reached ? 'incorrect' : 'not answered'}"></span>`).join('');
+    const excl = sec.id === 'ver' && S.pre.eng === 'no' ? ' <span class="muted small">(not counted)</span>' : '';
+    return `<tr><td class="nm">${sec.title}${excl}</td><td><div class="dots">${dots}</div></td><td>${n} of ${xs.length}</td></tr>`;
+  }).join('');
+
+  render(`<section class="report">
+    <div class="rep-head"><h2>Your Crim-eval report</h2><span class="status ${status[0]}">${status[1]}</span></div>
+    ${curveSVG(iq, lo, hi)}
+    <p class="verdict">Your estimated IQ is <b>${iq}</b>. With 90% confidence, your score on this scale lies between <b>${lo}</b> and <b>${hi}</b>, somewhere from ${pctPhrase(pLo)} to ${pctPhrase(pHi)} percentile of adults.${ceilNote}</p>
+    <dl class="facts">
+      <div><dt>Best single estimate</dt><dd>${pctText(pct)} percentile</dd></div>
+      <div><dt>Descriptive category</dt><dd>${classify(iq)}</dd></div>
+      <div><dt>Measurement precision</dt><dd>± ${Math.round(15*seT)} points (1 SE)</dd></div>
+    </dl>
+
+    <h3>Scores by part</h3>
+    <table class="secs">${secRows}</table>
+    <p class="muted small" style="margin-bottom:30px">Filled circles are correct answers; dashed circles were not answered or not reached. Each part is too short to interpret alone. Only the overall estimate combines enough evidence to mean something.</p>
+
+    <h3>Validity checks</h3>
+    <ul class="checks">${checks.map(([k,t]) => `<li class="${k === 'ok' ? '' : k}">${t}</li>`).join('')}</ul>
+
+    <details>
+      <summary>How this score was calculated</summary>
+      <div>
+        <ul>
+          <li><b>What it measures.</b> The five parts cover fluid reasoning, quantitative reasoning, verbal reasoning, visual-spatial ability and working memory. These are the broad abilities in the Cattell-Horn-Carroll model that load most strongly on general intelligence (g).</li>
+          <li><b>Item design.</b> All items are original. Their difficulty is set by rules known from research to drive difficulty: the number and type of rules in a matrix, rule complexity in a series, shape complexity and angle in rotation, and sequence length in digit span. Matrix answer options are balanced so that each feature appears in exactly half of them, which blocks the “pick the most typical option” shortcut.</li>
+          <li><b>Scoring model.</b> Answers are combined with a three-parameter item response model, the same family of model used by modern adaptive tests. It weighs each item by its difficulty and how well it discriminates, and it allows for lucky guesses on multiple-choice items (1 in 8 for matrices, 1 in 4 or 5 elsewhere). Number-series answers are typed, so they can’t be guessed.</li>
+          <li><b>The estimate.</b> Your score is the expected value of ability given your answers, starting from the population average (an EAP estimate). With few items it stays cautious about extreme values instead of jumping to them.</li>
+          <li><b>The range.</b> The interval combines measurement error from your answers (± ${Math.round(15*se)} points) with an extra ± 3 points because item difficulties are research-based estimates, not values calibrated on a large norm sample.</li>
+        </ul>
+      </div>
+    </details>
+    <details>
+      <summary>What this test can’t tell you</summary>
+      <div>
+        <ul>
+          <li>Crim-eval has not been normed on a representative sample, so the IQ scale is an approximation. Treat the range, not the single number, as the result.</li>
+          <li>Thirty-five items in ten minutes are far less reliable than a 60 to 90 minute clinical battery. Expect a retake under good conditions to land somewhere else within the range.</li>
+          <li>It measures best between roughly 80 and 135, and up to the mid-140s with the extra part. Beyond that there are too few very easy or very hard items, so estimates are pulled toward the middle. Telling 145 apart from 160 would take many items that fewer than 1 in 1,000 people can solve.</li>
+          <li>It is not a diagnostic or clinical instrument. For school, work, legal or medical purposes, see a licensed psychologist who can give a standardized test such as the WAIS-5 or Stanford-Binet 5.</li>
+          <li>Tiredness, stress, distraction, an unfamiliar device or a second language all lower scores. Practice raises them.</li>
+          <li>IQ captures reasoning under time pressure. It says little about creativity, wisdom, character or skills you have built.</li>
+        </ul>
+      </div>
+    </details>
+
+    <div class="actions row">
+      <button class="primary" id="review">Review answers</button>
+      <button class="ghost" id="print">Print or save as PDF</button>
+      <button class="ghost" id="again">Start over</button>
+    </div>
+    <p class="muted small" style="margin-top:26px">Crim-eval uses original items written for this test. Nothing leaves your browser.</p>
+  </section>`);
+  document.getElementById('print').addEventListener('click', () => window.print());
+  document.getElementById('again').addEventListener('click', async () => {
+    if (await confirmBox('Starting over makes this a retest, and retest scores run higher than first attempts. Start over anyway?', 'Start over', 'Cancel')) { S.pre = {age:null, eng:null, prior:'yes'}; try { S.stored = localStorage.getItem(STORE_KEY); } catch(e) {} renderWelcome(); }
+  });
+  document.getElementById('review').addEventListener('click', async () => {
+    if (await confirmBox('Seeing the answers makes any future attempt on this test invalid. Show the answers?', 'Show answers', 'Cancel')) renderReview();
+  });
+}
+
+/* ---------------- review ---------------- */
+function renderReview(){
+  S.phase = 'review'; setWhere('Answer review', '');
+  const all = scoredItems();
+  let html = `<section><div class="rep-head"><h2>Answer review</h2><button class="ghost noprint" id="back">Back to report</button></div>`;
+  for (const sec of SECTIONS){
+    if (sec.id === 'adv' && !advGiven()) continue;
+    html += `<h3 style="margin-top:28px">${sec.title}</h3>`;
+    all.filter(x => x.sec === sec.id).forEach((x, i) => {
+      const kind = kindOf(sec, x.it);
+      const st = x.u ? '<span class="status ok">Correct</span>' : `<span class="status warn">${x.reached ? 'Incorrect' : 'Not answered'}</span>`;
+      const it = x.it; let body = '';
+      if (kind === 'mat') body = `<div class="grid2">${stimHTML('mat', it, null, 'review')}<div><p>Your answer: ${answerLabel('mat', it, x.r.ans)}. Correct: option ${it.key+1}.</p><p>${it.why}</p></div></div>`;
+      if (kind === 'ser') body = `${stimHTML('ser', it, null, 'review')}<p>Your answer: ${answerLabel('ser', it, x.r.ans)}. ${it.why}</p>`;
+      if (kind === 'ver') body = `<div class="vq" style="margin:0 0 10px;font-size:17px;max-width:none">${it.q}</div><p>Your answer: ${answerLabel('ver', it, x.r.ans)}. Correct: ${'ABCDE'[it.key]} (${it.opts[it.key]}). ${it.why}</p>`;
+      if (kind === 'rot'){ const o = it.options[it.key]; body = `<div class="grid2"><div class="row"><div class="mini">${polySVG(it.t, 0, false, it.unit)}</div><div class="mini">${polySVG(it.t, o.ang, false, it.unit)}</div></div><div><p>Your answer: ${answerLabel('rot', it, x.r.ans)}. Correct: option ${it.key+1}.</p><p>${rotWhy(it)}</p></div></div>`; }
+      if (kind === 'wm'){ const tr = S.ds[i]; body = `<p>Shown: ${it.seq.join(', ')}. Correct answer: ${it.seq.slice().reverse().join('')}. ${tr ? `You typed: ${tr.ans || 'nothing'}.` : 'Not presented (the task stops after two misses in a row).'}</p>`; }
+      html += `<div class="rv"><h4>Item ${i+1} ${st}</h4>${body}</div>`;
+    });
+  }
+  html += `</section>`;
+  render(html);
+  document.getElementById('back').addEventListener('click', renderResults);
+}
+
+/* ---------------- keyboard ---------------- */
+document.addEventListener('keydown', e => {
+  if (document.querySelector('.modal')) return;
+  if (S.phase !== 'item') return;
+  const sec = SECTIONS[S.sec]; if (!sec || sec.kind === 'wm') return;
+  if (e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
+  if (e.target.tagName === 'INPUT') return; // series input handles its own Enter
+  if (/^[1-8]$/.test(e.key)) { select(+e.key - 1); e.preventDefault(); }
+  else if (sec.kind === 'ver' && /^[a-eA-E]$/.test(e.key)) { select('abcde'.indexOf(e.key.toLowerCase())); e.preventDefault(); }
+  else if (e.key === 'Enter' || e.key === 'ArrowRight') { next(); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { go(S.idx - 1); e.preventDefault(); }
+});
+
+renderWelcome();
+</script>
+</body>
+</html>
